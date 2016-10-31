@@ -174,6 +174,7 @@ void feedforward(struct network *net, int thread)
 	START_TIME(feedforward);
     sum = 0.0;
 	for (i = 0; i < net->num_layer-1; i++) {
+#if 0
 #pragma omp parallel for num_threads(thread) private(j, k, l) reduction(+:sum) collapse(2)
 		for (j = 0; j < net->mini_batch_size; j++) {
 			for (k = 0; k < net->layer_size[i+1]; k++) {
@@ -187,6 +188,9 @@ void feedforward(struct network *net, int thread)
 				sum = 0.0;
 			}
 		}
+#else
+
+#endif
 	}
 	END_TIME(feedforward);
 }
@@ -199,6 +203,7 @@ void back_pass(struct network *net, int thread1, int thread2)
 
 	START_TIME(back_pass);
 	// calculate delta
+#if 0
 #pragma omp parallel for num_threads(thread1) private(i, j) collapse(2)
 	for (i = 0; i < net->mini_batch_size; i++) {
 		for (j = 0; j < net->layer_size[net->num_layer-1]; j++) {
@@ -223,6 +228,9 @@ void back_pass(struct network *net, int thread1, int thread2)
 			}
 		}
 	}
+#else
+
+#endif
 	END_TIME(back_pass);
 }
 
@@ -236,6 +244,7 @@ void backpropagation(struct network *net, int thread1, int thread2)
 
 	START_TIME(backpropagation);
 	// update bias
+#if 0
 #pragma omp parallel for num_threads(thread1) private(i, j, k) collapse(2)
 	for (i = 1; i < net->num_layer; i++) {
 		for (j = 0; j < net->layer_size[i]; j++) {
@@ -259,6 +268,9 @@ void backpropagation(struct network *net, int thread1, int thread2)
 			}
 		}
 	}
+#else
+
+#endif
 	END_TIME(backpropagation);
 }
 
@@ -332,8 +344,8 @@ void report(struct network *net, void *threads)
     TIMER_INIT(total);
 
 	int i = 0;
-	FILE *f = fopen(net->report_file, "a+");
-	FILE *f_json = fopen("./result/dump_json", "a+");
+	FILE *f = fopen("./result/dump_mkl", "a+");
+	FILE *f_json = fopen("./result/dump_mkl_json", "a+");
 	if (f == NULL || f_json) {
 		printf("%s open failed\n", net->report_file);
 		printf("%s open failed\n", "dump_json");
