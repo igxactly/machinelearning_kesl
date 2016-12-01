@@ -15,16 +15,16 @@ OBJS += main.o network.o jsmn.o
 INCLUDE += $(LIB_PATH)
 
 CFLAGS += -I$(INCLUDE)
-CFLAGS += -qopenmp
-CFLAGS += -mkl
-#CFLAGS += -g
-#CFLAGS += -xMIC-AVX512
-CFLAGS += -qopt-report-phase=all
+# CFLAGS += -qopenmp
+# CFLAGS += -mkl
+# #CFLAGS += -g
+CFLAGS += -xMIC-AVX512
+# CFLAGS += -qopt-report-phase=all
 CFLAGS += -lmemkind
-#CFLAGS += -parallel-source-info=2
+# #CFLAGS += -parallel-source-info=2
 CFLAGS += -L/home/memkind_build/lib
 CFLAGS += -I/home/memkind_build/include/
-
+ 
 ifneq ($(HBWMODE), )
 	CFLAGS += -DHBWMODE
 endif

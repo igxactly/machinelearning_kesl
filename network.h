@@ -1,8 +1,8 @@
 #ifndef __NETWORK_H__
 #define __NETWORK_H__
 
-#include "jsmn/jsmn.h"
-#include "timeutils.h"
+#include <jsmn/jsmn.h>
+#include <timeutils.h>
 #include <hbwmalloc.h>
 
 #define TOTAL_NEURONS(net_p)     AC_NEURONS(net_p, net_p->num_layer-1)
