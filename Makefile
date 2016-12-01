@@ -1,4 +1,4 @@
-CC=gcc
+CC=icc
 ELF=mnist
 
 ROOT_PATH= .
@@ -19,7 +19,8 @@ OBJS += main.o network.o jsmn.o
 INCLUDE += $(LIB_PATH)
 
 CFLAGS += -I$(INCLUDE)
-CFLAGS += -g
+CFLAGS += -xMIC-AVX512
+#CFLAGS += -g
 #CFLAGS += -fopenmp
 
 all: ${ELF}

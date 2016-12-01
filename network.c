@@ -8,6 +8,8 @@
 #include "timeutils.h"
 #include <math.h>
 
+#include <cilk/cilk.h>
+
 double randn(void);
 static void print_error(struct network *net, enum DATA_T t, int layer);
 static double sigmoid(double z);
@@ -77,11 +79,11 @@ void initializer(struct network *net, char *conf_fname)
 
 	// init weight with bias with random values
 	for (i = 0; i < TOTAL_WEIGHTS(net); i++) {
-        net->weight[i] = randn();
+		net->weight[i] = randn();
 	}
 
 	for (i = 0; i < TOTAL_NEURONS(net); i++) {
-        net->bias[i] = randn();
+		net->bias[i] = randn();
 	}
 
 	free(conf_str);
@@ -107,7 +109,7 @@ void reader(struct network *net)
 		for (j = 0; j < first_layer_size; j++) {
 			DATA_TRAIN_Q(net, i, j) = train_data[i].data[j/28][j%28];
 		}
-        DATA_TRAIN_A(net, i) = train_data[i].label;
+		DATA_TRAIN_A(net, i) = train_data[i].label;
 	}
 
 	// Reading test data
@@ -123,7 +125,7 @@ void reader(struct network *net)
 			DATA_TEST_Q(net, i, j) = test_data[i].data[j/28][j%28];
 		}
 
-        DATA_TEST_A(net, i) = test_data[i].label;
+		DATA_TEST_A(net, i) = test_data[i].label;
 	}
 
 	free(train_data);
@@ -147,7 +149,7 @@ void update(struct network *net)
 
 			// copy input and output for SGD
 			for (k = 0; k < net->mini_batch_size; k++) {
-                int s_index = (k+j*19)%nr_train;
+				int s_index = (k+j*19)%nr_train;
 				// copy input to first layer of neuron array
 				for (l = 0; l < first_layer_size; l++)
 					NEURON(net, 0, k, l) = DATA_TRAIN_Q(net, s_index, l);
@@ -174,10 +176,12 @@ void learner(struct network *net)
 
 	// feedforward
 	START_TIME(net->t_feedforward);
-    sum = 0.0;
+	sum = 0.0;
 	for (i = 0; i < net->num_layer-1; i++) {
-		for (j = 0; j < net->mini_batch_size; j++) {
+#pragma cilk grainsize = 50
+		cilk_for (j = 0; j < net->mini_batch_size; j++) {
 			for (k = 0; k < net->layer_size[i+1]; k++) {
+#pragma simd
 				for (l = 0; l < net->layer_size[i]; l++) {
 					sum = sum + NEURON(net, i, j, l) * WEIGHT(net, i, l, k);
 				}
@@ -192,23 +196,28 @@ void learner(struct network *net)
 
 	START_TIME(net->t_back_pass);
 	// calculate delta
-	for (i = 0; i < net->mini_batch_size; i++) {
+#pragma cilk grainsize = 50
+	cilk_for (i = 0; i < net->mini_batch_size; i++) {
 		for (j = 0; j < net->layer_size[net->num_layer-1]; j++) {
 			//	calculate delta in last output layer
 			ERROR(net, net->num_layer-1, i, j) =
-			(NEURON(net, net->num_layer-1, i, j)-ERROR(net, net->num_layer-1, i, j)) *
-			sigmoid_prime(ZS(net, net->num_layer-1, i, j));
+				(NEURON(net, net->num_layer-1, i, j)-ERROR(net, net->num_layer-1, i, j)) *
+				sigmoid_prime(ZS(net, net->num_layer-1, i, j));
 		}
 	}
 
 	sum = 0.0;
 	for (i = net->num_layer-2; i > 0; i--) {
-		for (j = 0; j < net->mini_batch_size; j++) {
+#pragma cilk grainsize = 50
+		cilk_for (j = 0; j < net->mini_batch_size; j++) {
 			for (k = 0; k < net->layer_size[i]; k++) {
+
+				#pragma simd
 				for (l = 0; l < net->layer_size[i+1]; l++) {
 					//	calculate delta from before layer
 					sum = sum + ERROR(net, i+1, j, l) * WEIGHT(net, i, k, l);
 				}
+
 				ERROR(net, i, j, k) = sum * sigmoid_prime(ZS(net, i, j, k));
 				sum = 0.0;
 			}
@@ -224,7 +233,8 @@ void learner(struct network *net)
 	// update bias
 	delta_sum = 0.0;
 	for (i = 1; i < net->num_layer; i++) {
-		for (j = 0; j < net->layer_size[i]; j++) {
+#pragma cilk grainsize = 50
+		cilk_for (j = 0; j < net->layer_size[i]; j++) {
 			for (k = 0; k < net->mini_batch_size; k++) {
 				delta_sum += ERROR(net, i, k, j);
 			}
@@ -236,8 +246,10 @@ void learner(struct network *net)
 	// update weight
 	delta_sum = 0.0;
 	for (i = 0; i < net->num_layer-1; i++) {
-		for (j = 0; j < net->layer_size[i]; j++) {
+#pragma cilk grainsize = 50
+		cilk_for (j = 0; j < net->layer_size[i]; j++) {
 			for (k = 0; k < net->layer_size[i+1]; k++) {
+#pragma simd
 				for (l = 0; l < net->mini_batch_size; l++) {
 					//	calculate delta from before layer
 					delta_sum  += (NEURON(net, i, l, j) * ERROR(net, i+1, l, k));
@@ -278,9 +290,11 @@ int evaluator(struct network *net)
 		}
 
 		//feedforward
-        sum = 0.0;
+		sum = 0.0;
 		for (j = 0; j < net->num_layer-1; j++) {
-			for (k = 0; k < net->layer_size[j+1]; k++) {
+#pragma cilk grainsize = 50
+			cilk_for (k = 0; k < net->layer_size[j+1]; k++) {
+#pragma simd
 				for (l = 0; l < net->layer_size[j]; l++) {
 					sum = sum + NEURON(net, j, 0, l) * WEIGHT(net, j, l, k);
 				}
@@ -335,9 +349,9 @@ void report(struct network *net)
 	fprintf( f, "back_pass : %f sec\n", TOTAL_SEC_TIME(net->t_back_pass));
 	fprintf( f, "backpropagation : %f sec\n", TOTAL_SEC_TIME(net->t_backpropagation));
 	fprintf( f, "total : %f sec\n", 
-		TOTAL_SEC_TIME(net->t_feedforward) + 
-		TOTAL_SEC_TIME(net->t_back_pass) +
-		TOTAL_SEC_TIME(net->t_backpropagation));
+			TOTAL_SEC_TIME(net->t_feedforward) + 
+			TOTAL_SEC_TIME(net->t_back_pass) +
+			TOTAL_SEC_TIME(net->t_backpropagation));
 
 	fclose(f);
 }
@@ -473,25 +487,25 @@ static void print_error(struct network *net, enum DATA_T t, int layer)
 		}
 	} else if(t == BIAS){
 		printf("BIAS\n");
-        for (i = 0 ; i < net->layer_size[layer]; i++) {
-            printf("%1.2f ", BIAS(net, layer, i));
-        }
-        printf("\n");
+		for (i = 0 ; i < net->layer_size[layer]; i++) {
+			printf("%1.2f ", BIAS(net, layer, i));
+		}
+		printf("\n");
 	}
 
 }
 
 double randn(void)
 {
-    double v1, v2, s;
+	double v1, v2, s;
 
-    do {
-        v1 =  2 * ((double) rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
-        v2 =  2 * ((double) rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
-        s = v1 * v1 + v2 * v2;
-    } while (s >= 1 || s == 0);
+	do {
+		v1 =  2 * ((double) rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
+		v2 =  2 * ((double) rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
+		s = v1 * v1 + v2 * v2;
+	} while (s >= 1 || s == 0);
 
-    s = sqrt( (-2 * log(s)) / s );
+	s = sqrt( (-2 * log(s)) / s );
 
-    return v1 * s;
+	return v1 * s;
 }
