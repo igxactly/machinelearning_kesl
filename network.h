@@ -5,28 +5,28 @@
 #include "timeutils.h"
 #include <hbwmalloc.h>
 
-#define TOTAL_NEURONS(net_p)     AC_NEURONS(net_p, net_p->num_layer-1)
-#define TOTAL_WEIGHTS(net_p)     AC_WEIGHTS(net_p, net_p->num_layer-2)
+#define TOTAL_NEURONS(net_p)     AC_NEURONS((net_p), (net_p)->num_layer-1)
+#define TOTAL_WEIGHTS(net_p)     AC_WEIGHTS((net_p), (net_p)->num_layer-2)
 
-#define AC_NEURONS(net_p, L)       (0 > L ? 0 : net_p->ac_neuron[L])
-#define AC_WEIGHTS(net_p, L)       (0 > L ? 0 : net_p->ac_weight[L])
+#define AC_NEURONS(net_p, L)       (0 > L ? 0 : (net_p)->ac_neuron[(L)])
+#define AC_WEIGHTS(net_p, L)       (0 > L ? 0 : (net_p)->ac_weight[(L)])
 
-#define BIAS(net_p, i, j)          (net_p->bias[AC_NEURONS(net_p, i-1) + j])
-#define WEIGHT(net_p, i, j, k)     (net_p->weight[AC_WEIGHTS(net_p, i-1) \
-									+ j*net_p->layer_size[i+1] + k])
+#define BIAS(net_p, i, j)          ((net_p)->bias[AC_NEURONS((net_p), (i)-1) + (j)])
+#define WEIGHT(net_p, i, j, k)     ((net_p)->weight[AC_WEIGHTS((net_p), (i)-1) \
+									+ (j)*(net_p)->layer_size[(i)+1] + (k)])
 
 // ith layer, jth mini_batch, kth node
-#define NEURON(net_p, i, j, k)      (net_p->neuron[AC_NEURONS(net_p, i-1)*net_p->mini_batch_size \
-									+ net_p->layer_size[i]*(j) + (k)])
-#define ZS(net_p, i, j, k)      	(net_p->zs[AC_NEURONS(net_p, i-1)*net_p->mini_batch_size \
-									+ net_p->layer_size[i]*(j) + (k)])
-#define ERROR(net_p, i, j, k)      	(net_p->error[AC_NEURONS(net_p, i-1)*net_p->mini_batch_size \
-									+ net_p->layer_size[i]*(j) + (k)])
+#define NEURON(net_p, i, j, k)      ((net_p)->neuron[AC_NEURONS((net_p), (i)-1)*(net_p)->mini_batch_size \
+									+ (net_p)->layer_size[(i)]*(j) + (k)])
+#define ZS(net_p, i, j, k)      	((net_p)->zs[AC_NEURONS((net_p), (i)-1)*(net_p)->mini_batch_size \
+									+ (net_p)->layer_size[(i)]*(j) + (k)])
+#define ERROR(net_p, i, j, k)      	((net_p)->error[AC_NEURONS((net_p), (i)-1)*(net_p)->mini_batch_size \
+									+ (net_p)->layer_size[(i)]*(j) + (k)])
 
-#define DATA_TRAIN_Q(net, i, j)		(net->train_q[net->layer_size[0]*i + j])
-#define DATA_TRAIN_A(net, i)		(net->train_a[i])
-#define DATA_TEST_Q(net, i, j)		(net->test_q[net->layer_size[0]*i + j])
-#define DATA_TEST_A(net, i)			(net->test_a[i])
+#define DATA_TRAIN_Q(net, i, j)		((net)->train_q[(net)->layer_size[0]*(i) + (j)])
+#define DATA_TRAIN_A(net, i)		((net)->train_a[(i)])
+#define DATA_TEST_Q(net, i, j)		((net)->test_q[(net)->layer_size[0]*(i) + (j)])
+#define DATA_TEST_A(net, i)			((net)->test_a[(i)])
 
 #define WHILE						while(1)
 
