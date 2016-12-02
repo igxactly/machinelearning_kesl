@@ -183,10 +183,8 @@ void feedforward(struct network *net, int thread)
 #elif 1   /* OpenMP : with collapse */
     for (i = 0; i < net->num_layer-1; i++) {
         for (j = 0; j < nr_chunk; j++) {
-            #pragma omp parallel for num_threads(100) private(m, k, l) collapse(2)
             for (m = 0; m < chunk_size; m++) {
                 for (k = 0; k < net->layer_size[i+1]; k++) {
-                    #pragma omp simd reduction(+:sum)
                     for (l = 0; l < net->layer_size[i]; l++) {
                         sum = sum + NEURON(net, i, j*chunk_size+m, l) * WEIGHT(net, i, l, k);
                     }
@@ -210,7 +208,6 @@ void back_pass(struct network *net, int thread1, int thread2)
 
 	START_TIME(back_pass);
 	// calculate delta
-#pragma omp parallel for num_threads(thread1) private(i, j) collapse(2)
 	for (i = 0; i < net->mini_batch_size; i++) {
 		for (j = 0; j < net->layer_size[net->num_layer-1]; j++) {
 			//	calculate delta in last output layer
@@ -222,7 +219,6 @@ void back_pass(struct network *net, int thread1, int thread2)
 
 	sum = 0.0;
 	for (i = net->num_layer-2; i > 0; i--) {
-#pragma omp parallel for num_threads(thread2) private(j, k, l) reduction(+:sum) collapse(2)
 		for (j = 0; j < net->mini_batch_size; j++) {
 			for (k = 0; k < net->layer_size[i]; k++) {
 				for (l = 0; l < net->layer_size[i+1]; l++) {
@@ -247,10 +243,8 @@ void backpropagation(struct network *net, int thread1, int thread2)
 
 	START_TIME(backpropagation);
 	// update bias
-#pragma omp parallel for num_threads(thread1) private(i, j, k) collapse(2)
 	for (i = 1; i < net->num_layer; i++) {
 		for (j = 0; j < net->layer_size[i]; j++) {
-            #pragma omp simd
 			for (k = 0; k < net->mini_batch_size; k++) {
                 BIAS(net, i, j) -= (eta/mini)*ERROR(net, i, k, j);
 			}
@@ -259,10 +253,8 @@ void backpropagation(struct network *net, int thread1, int thread2)
 
 	// update weight
 	for (i = 0; i < net->num_layer-1; i++) {
-#pragma omp parallel for num_threads(thread2) private(j, k, l) collapse(2)
 		for (j = 0; j < net->layer_size[i]; j++) {
 			for (k = 0; k < net->layer_size[i+1]; k++) {
-                #pragma omp simd
 				for (l = 0; l < net->mini_batch_size; l++) {
 					//	calculate delta from before layer
                     WEIGHT(net, i, j, k) -= (eta/mini)*(NEURON(net, i, l, j) * ERROR(net, i+1, l, k));
@@ -302,7 +294,6 @@ int predict(struct network *net)
 		//feedforward
         sum = 0.0;
 		for (j = 0; j < net->num_layer-1; j++) {
-#pragma omp parallel for num_threads(100) private(k, l) reduction(+:sum)
 			for (k = 0; k < net->layer_size[j+1]; k++) {
 				for (l = 0; l < net->layer_size[j]; l++) {
 					sum = sum + NEURON(net, j, 0, l) * WEIGHT(net, j, l, k);
